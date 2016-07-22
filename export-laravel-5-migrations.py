@@ -93,9 +93,9 @@ def generateLaravel5Migration(cat):
                     pk_column = primary_key.columns[0].referencedColumn
 
                 if col == pk_column:
-                    if col_type == 'BIGINT':
+                    if col_type == 'BIGINT' and col.autoIncrement == 1:
                         col_type = 'BIGINCREMENTS'
-                    else:
+                    elif col.autoIncrement == 1:
                         col_type = 'INCREMENTS'
 
                 col_data = '\''
@@ -137,6 +137,29 @@ def generateLaravel5Migration(cat):
                 migrations[tbl.name].append('            $table->timestamps();\n')
             elif timestamps_nullable is True:
                 migrations[tbl.name].append('            $table->nullableTimestamps();\n')
+
+            migrations[tbl.name].append('\n')    
+            for col_idx in tbl.indices:
+                if col_idx.indexType == 'UNIQUE':
+                    col_ref = col_idx.columns[0].referencedColumn
+                    migrations[tbl.name].append('            $table->unique(\'%s\')\n' % (col_ref.name))     
+                else:
+                    if col_idx.indexType == 'PRIMARY':
+                        text_idx = 'primary'
+                    elif col_idx.indexType == 'INDEX':
+                        text_idx = 'index'
+                    else:
+                        continue    
+
+                    if len(col_idx.columns) > 1:
+                        array_col_idx = []
+                        for i in col_idx.columns:
+                            array_col_idx.append('\'%s\'' % (i.referencedColumn.name))
+
+                        migrations[tbl.name].append('            $table->%s(array(%s))\n' % (text_idx, ', '.join(array_col_idx)))
+                    else:
+                        col_ref = col_idx.columns[0].referencedColumn
+                        migrations[tbl.name].append('            $table->%s(\'%s\')\n' % (text_idx, col_ref.name))    
 
             first_foreign_created = 0
             for fkey in tbl.foreignKeys:
